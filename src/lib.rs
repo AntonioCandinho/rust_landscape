@@ -1,3 +1,6 @@
-pub fn add(a: u32, b: u32) -> u32 {
-    a + b
-}
+mod segment;
+mod landscape;
+
+pub use crate::segment::Segment;
+pub use crate::landscape::Landscape;
+

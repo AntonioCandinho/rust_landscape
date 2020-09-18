@@ -14,6 +14,15 @@ Given some initial landscape and some ours of rain compute the final state of th
 * Water flows in units from the taller segments to the smaller ones
 * There are infinite walls on the edges of the landscape
 
+## Considerations
+
+Although not in the problem definition in order to be able to solve the problem some things
+must be taken into consideration:
+
+* Water flows as it drops, that is after an hour of rain water flows to an steady position
+* Water does not flow to equal height segments, this is water does not flow on plain surfaces.
+  i.e: An unit of water in a segment of height 3 will not flow into a segment of height 3 
+
 ## Algorithm
 
 Premise: This system reaches an steady state
