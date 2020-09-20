@@ -1,17 +1,20 @@
-#[derive(Debug)]
-#[derive(PartialEq)]
+#[derive(Debug,PartialEq)]
 pub struct Segment {
     pub height: usize,
-    pub rain: usize,
+    pub rain: f64,
 }
 
 impl Segment {
     pub fn new(height: usize) -> Segment {
-        Segment {height, rain: 0}
+        Segment {height, rain: 0.0}
     }
 
-    pub fn get_total_height(&self) -> usize {
-        self.height + self.rain
+    pub fn get_total_height(&self) -> f64 {
+        (self.height as f64) + self.rain
+    }
+
+    pub fn has_rain(&self) -> bool {
+        self.rain > 0.0
     }
 }
 
