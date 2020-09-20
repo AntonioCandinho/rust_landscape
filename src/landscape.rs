@@ -1,122 +1,107 @@
+use std::collections::VecDeque;
+
 use crate::segment::Segment;
+use crate::vshape::VShape;
 
 #[derive(Debug, PartialEq)]
 pub struct Landscape {
-    segments: Vec<Segment>
+    pub vshapes: VecDeque<VShape>,
+    pub segment_count: usize,
 }
 
 impl Landscape {
     pub fn new(segment_heights: &[usize]) -> Landscape {
-        Landscape{
-            segments: segment_heights.iter()
-                                     .map(|height| Segment::new(*height))
-                                     .collect()
+        let mut vshapes: VecDeque<VShape> = VecDeque::new();
+        let mut segments: Vec<Segment> = Vec::new();
+        let mut have_direction: bool = false;
+        let mut ascending: bool = false;
+        for i in 0..segment_heights.len() {
+            segments.push(Segment::new(segment_heights[i], i));
+            if  i + 1 == segment_heights.len()  {
+                vshapes.push_back(VShape::new(segments));
+                break;
+            }
+            if !have_direction {
+                ascending = segment_heights[i] < segment_heights[i + 1];
+                have_direction = true;
+            }
+            if ascending && segment_heights[i] > segment_heights[i + 1] {
+                vshapes.push_back(VShape::new(segments));
+                segments = Vec::new();
+                segments.push(Segment::new(segment_heights[i], i));
+                ascending = false;
+            }
+            if !ascending && segment_heights[i] < segment_heights[i + 1] {
+                ascending = true;
+            }
         }
-    }
+        Landscape { vshapes, segment_count: segment_heights.len() }
 
-    pub fn from_segments(segments: &[Segment]) -> Landscape {
-        Landscape {segments: segments.to_vec()}
     }
 
     pub fn rain(&mut self, hours: usize) {
-        for _ in 0..hours {
-            self.rain_for_an_hour();
-        }
-    }
-
-    pub fn rain_for_an_hour(&mut self) {
-        let mut w = 0;
-        for segment in self.segments.iter_mut() {
-            segment.rain += 1.0;
-        }
-        loop {
-            let mut changed = false;
-            println!("Segments {:?}", self.segments);
-            for i in 0..self.segments.len() {
-                w =  w + 1;
-                changed |= self.view_segment_at_index(i);
+        let mut total_water = (hours * self.segment_count) as f64;
+        let mut remaining_water = total_water;
+        while total_water > (0.0 + f64::EPSILON) {
+            for i in 0..self.vshapes.len() {
+                let vshape_water = (total_water * self.get_vshape_water_factor(i)) / (self.segment_count as f64);
+                let uneeded_water = self.vshapes[i].fill(vshape_water);
+                remaining_water -= vshape_water - uneeded_water;
             }
-            if !changed {
-                break;
+            self.join_vshapes();
+            total_water = remaining_water;
+        }
+    }
+
+    fn join_vshapes(&mut self) {
+        let mut joining = true;
+        while joining {
+            joining = false;
+            for i in 0..self.vshapes.len() {
+                if i + 1 < self.vshapes.len() && self.vshapes[i].joined_right()  {
+                    let right_shape = self.vshapes.remove(i + 1);
+                    self.vshapes[i].join(right_shape.unwrap());
+                    joining = true;
+                    break;
+                }
+                if i > 0 && self.vshapes[i].joined_left()  {
+                    let my_shape = self.vshapes.remove(i);
+                    self.vshapes[i - 1].join(my_shape.unwrap());
+                    joining = true;
+                    break;
+                }
             }
         }
-        println!("{}", w);
     }
 
-    fn view_segment_at_index(&mut self, i: usize) -> bool {
-        let mut changed = false;
-        if !self.segments[i].has_rain() {
-            return changed;
+    fn get_vshape_water_factor(&self, vshape_index: usize) -> f64 {
+        let mut vshape_water: f64 = (self.vshapes[vshape_index].segment_count() as f64) - 1.0;
+        if vshape_index == 0 {
+            vshape_water += 0.5;
         }
-        let mut left_flow = if i > 0 
-            { self.get_required_flow(i, i -1) }
-            else { 0.0 };
-        let mut right_flow = if i < self.segments.len() - 1 
-            { self.get_required_flow(i, i + 1)}
-            else { 0.0 };
-        
-
-        let max_rain = if right_flow > std::f64::EPSILON && left_flow > std::f64::EPSILON 
-            { self.segments[i].rain / 2.0 }
-            else { self.segments[i].rain };
-            
-        // optimize unit splitting
-        if right_flow > std::f64::EPSILON && left_flow > std::f64::EPSILON {
-            left_flow *= 2.0 / 3.0;
-            right_flow *= 2.0 / 3.0;
-        } else {
-            left_flow *= 0.5;
-            right_flow *= 0.5;
+        if vshape_index + 1 == self.vshapes.len() {
+            vshape_water += 0.5;
         }
-
-        // prioritize right over left for fast convergence
-        //right_flow = if right_flow.round() == 1.0
-        //    { right_flow }
-        //    else { right_flow / 2.0};
-        //left_flow = if left_flow.round() == 1.0 && right_flow >= 1.0 
-        //    { 0.0 } 
-        //    else { left_flow / 2.0};
-        
-        if right_flow > std::f64::EPSILON {
-            let required_flow = self.get_equalizing_move_flow(max_rain, right_flow);
-            self.segments[i].rain -= required_flow;
-            self.segments[i + 1].rain += required_flow;
-            changed = true;
-        }
-        if left_flow > std::f64::EPSILON {
-            let required_flow = self.get_equalizing_move_flow(max_rain, left_flow);
-            self.segments[i].rain -= required_flow;
-            self.segments[i - 1].rain += required_flow;
-            changed = true;
-        }
-        changed
-    }
-
-    
-    fn get_equalizing_move_flow(&self, max_rain: f64, required_flow: f64) -> f64 {
-        if required_flow > max_rain {
-            return max_rain;
-        }
-        required_flow
-    }
-
-    fn get_required_flow(&self, from: usize, to: usize) -> f64 {
-        let diff = self.segments[from].get_total_height() - self.segments[to].get_total_height();
-        if diff < 0.0 {
-            return 0.0;
-        }
-         diff
+        vshape_water
     }
 
     pub fn get_segments(&self) -> Vec<Segment> {
-        self.segments.clone()
+        let mut segments: Vec<Segment> = Vec::new();
+        for vshape in self.vshapes.iter() {
+            let mut partial_segments = vshape.get_segments();
+            segments.append(&mut partial_segments);
+        }
+        segments.sort_by(|a, b| a.index.cmp(&b.index));
+        segments
     }
 
 }
 
 impl Clone for Landscape {
     fn clone(&self) -> Landscape {
-        Landscape { segments: self.get_segments() }
+        Landscape {
+            segment_count: self.segment_count,
+            vshapes: self.vshapes.clone(),
+        }
     }
 }
-

@@ -1,12 +1,13 @@
 #[derive(Debug,PartialEq)]
 pub struct Segment {
+    pub index: usize,
     pub height: usize,
     pub rain: f64,
 }
 
 impl Segment {
-    pub fn new(height: usize) -> Segment {
-        Segment {height, rain: 0.0}
+    pub fn new(height: usize, index: usize) -> Segment {
+        Segment {index, height, rain: 0.0}
     }
 
     pub fn get_total_height(&self) -> f64 {
@@ -20,7 +21,7 @@ impl Segment {
 
 impl Clone for Segment {
     fn clone(&self) -> Segment {
-        Segment { height: self.height, rain: self.rain }
+        Segment { index: self.index, height: self.height, rain: self.rain }
 
     }
 }
