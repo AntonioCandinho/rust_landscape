@@ -41,6 +41,20 @@ fn given_some_example_landscape() {
 }
 
 #[test]
+fn should_work_with_repeated_height_landscapes() {
+    let mut landscape = Landscape::new(&vec![1, 8, 8, 8, 1]);
+    landscape.rain(1);
+    assert_eq!(landscape.get_segments(), vec![
+        Segment { height: 1, rain: 2.5, index: 0},
+        Segment { height: 8, rain: 0.0, index: 1},
+        Segment { height: 8, rain: 0.0, index: 2},
+        Segment { height: 8, rain: 0.0, index: 3},
+        Segment { height: 1, rain: 2.5, index: 4},
+    ]);
+
+}
+
+#[test]
 fn should_work_with_stair_landscapes() {
     let mut landscape = Landscape::new(&vec![1, 2, 3, 4, 5, 6]);
     landscape.rain(1);
@@ -53,6 +67,7 @@ fn should_work_with_stair_landscapes() {
         Segment { height: 6, rain: 0.0, index: 5},
     ]);
 }
+
 
 #[test]
 fn should_work_with_stair_saw_tooth() {

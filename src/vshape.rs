@@ -3,6 +3,8 @@ use crate::segment::Segment;
 #[derive(Debug, PartialEq)]
 pub struct VShape {
     segments: Vec<Segment>,
+    left_index: usize,
+    right_index: usize,
     left_limit: f64,
     right_limit: f64,
     minimal_height: f64,
@@ -10,11 +12,22 @@ pub struct VShape {
 
 impl VShape {
     pub fn new(mut segments: Vec<Segment>) -> VShape {
-        let left_limit = segments[0].height as f64;
-        let right_limit = segments[segments.len() -1].height as f64;
+        let first_segment = &segments[0];
+        let last_segment = &segments[segments.len() - 1];
+        let left_limit = first_segment.height as f64;
+        let right_limit = last_segment.height as f64;
+        let left_index = first_segment.index as usize;
+        let right_index = last_segment.index as usize;
         segments.sort_by(|a, b| a.height.cmp(&b.height));
         let minimal_height = segments[0].get_total_height();
-        VShape {segments, left_limit, right_limit, minimal_height}
+        VShape {
+            segments,
+            left_index,
+            right_index,
+            left_limit,
+            right_limit,
+            minimal_height,
+        }
     }
 
     pub fn joined_left(&self) -> bool {
@@ -25,19 +38,20 @@ impl VShape {
         self.minimal_height >= self.right_limit
     }
 
-    pub fn join(&mut self, mut vshape: VShape) {
+    pub fn right_join(&mut self, mut vshape: VShape) {
         self.right_limit = vshape.right_limit;
         self.minimal_height = if self.minimal_height < vshape.minimal_height
             { self.minimal_height }
             else { vshape.minimal_height };
-        'outer: for i in 0..vshape.segments.len(){
-            for segment in self.segments.iter().rev() {
-                if segment.index == vshape.segments[i].index {
+        if self.right_index == vshape.left_index {
+            for i in 0..vshape.segments.len() {
+                if vshape.segments[i].index == vshape.left_index {
                     vshape.segments.remove(i);
-                    break 'outer;
+                    break;
                 }
             }
         }
+        self.right_index = vshape.right_index;
         self.segments.append(&mut vshape.segments);
         self.segments.sort_by(
             |a, b| a.get_total_height().partial_cmp(&b.get_total_height()).unwrap(),
@@ -73,6 +87,14 @@ impl VShape {
         rain
     }
 
+    pub fn left_share(&self, vshape: &VShape) -> bool {
+        self.left_index == vshape.right_index
+    }
+
+    pub fn right_share(&self, vshape: &VShape) -> bool {
+        self.right_index == vshape.left_index
+    }
+
     pub fn get_segments(&self) -> Vec<Segment> {
         let mut segments: Vec<Segment> = Vec::new();
         for segment in self.segments.iter() {
@@ -93,6 +115,8 @@ impl Clone for VShape {
             left_limit: self.left_limit,
             right_limit: self.right_limit,
             minimal_height: self.minimal_height,
+            right_index: self.right_index,
+            left_index: self.left_index,
         }
     }
 }
