@@ -61,36 +61,26 @@ impl Landscape {
     pub fn rain(&mut self, hours: usize) {
         let mut total_water = (hours * self.segment_count) as f64;
         let mut remaining_water = total_water;
+        let mut water_distribution = self.get_vshape_water_distribution(total_water);
         while total_water > (0.0 + f64::EPSILON) {
             for i in 0..self.vshapes.len() {
-                let vshape_water = (total_water * self.get_vshape_water_factor(i)) / (self.segment_count as f64);
+                let vshape_water = water_distribution[i];
                 let uneeded_water = self.vshapes[i].fill(vshape_water);
+                water_distribution[i] -= vshape_water - uneeded_water;
                 remaining_water -= vshape_water - uneeded_water;
             }
-            self.join_vshapes();
+            self.join_vshapes(&mut water_distribution);
             total_water = remaining_water;
         }
     }
 
-    fn join_vshapes(&mut self) {
-        let mut joining = true;
-        while joining {
-            joining = false;
-            for i in 0..self.vshapes.len() {
-                if i + 1 < self.vshapes.len() && self.vshapes[i].joined_right()  {
-                    let right_shape = self.vshapes.remove(i + 1);
-                    self.vshapes[i].right_join(right_shape.unwrap());
-                    joining = true;
-                    break;
-                }
-                if i > 0 && self.vshapes[i].joined_left()  {
-                    let my_shape = self.vshapes.remove(i);
-                    self.vshapes[i - 1].right_join(my_shape.unwrap());
-                    joining = true;
-                    break;
-                }
-            }
+    fn get_vshape_water_distribution(&mut self, total_water: f64) -> Vec<f64> {
+        let mut water_distribution: Vec<f64> = Vec::with_capacity(self.vshapes.len());
+        for i in 0..self.vshapes.len() {
+            let vshape_water = (total_water * self.get_vshape_water_factor(i)) / (self.segment_count as f64);
+            water_distribution.push(vshape_water);
         }
+        water_distribution
     }
 
     fn get_vshape_water_factor(&self, vshape_index: usize) -> f64 {
@@ -110,6 +100,31 @@ impl Landscape {
            
         }
         vshape_water
+    }
+
+    fn join_vshapes(&mut self, distribution: &mut Vec<f64>) {
+        let mut joining = true;
+        while joining {
+            joining = false;
+            for i in 0..self.vshapes.len() {
+                if i + 1 < self.vshapes.len() && self.vshapes[i].joined_right()  {
+                    let right_shape = self.vshapes.remove(i + 1);
+                    let right_water = distribution.remove(i + 1);
+                    self.vshapes[i].right_join(right_shape.unwrap());
+                    distribution[i] += right_water;
+                    joining = true;
+                    break;
+                }
+                if i > 0 && self.vshapes[i].joined_left()  {
+                    let my_shape = self.vshapes.remove(i);
+                    let right_water = distribution.remove(i);
+                    self.vshapes[i - 1].right_join(my_shape.unwrap());
+                    distribution[i -1] += right_water;
+                    joining = true;
+                    break;
+                }
+            }
+        }
     }
 
     pub fn get_segments(&self) -> Vec<Segment> {
